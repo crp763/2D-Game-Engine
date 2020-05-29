@@ -9,8 +9,8 @@
 #include "InputComponent.h"
 #include "Actor.h"
 
-InputComponent::InputComponent(class Actor* owner)
-	:MoveComponent(owner)
+InputComponent::InputComponent(class Actor* owner, int UpdateOrder)
+	:MoveComponent(owner, UpdateOrder)
 	, mInteractKey(0)
 	, mUpKey(0)
 	, mDownKey(0)
@@ -41,7 +41,7 @@ void InputComponent::SetKeys(int interact, int up, int down, int left, int right
 	mAbility5Key = a5;
 }
 
-void InputComponent::ProcessInput()
+void InputComponent::Update(float deltaTime)
 {
 	const Uint8* state = SDL_GetKeyboardState(NULL);
 	int direction = mOwner->GetCharDirection();

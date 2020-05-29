@@ -9,14 +9,15 @@
 #pragma once
 #include <cstdint>
 #include "MoveComponent.h"
+#include "Component.h"
 
 class InputComponent : public MoveComponent
 {
 public:
 	// Lower update order to update first
-	InputComponent(class Actor* owner);
+	InputComponent(class Actor* owner, int UpdateOrder = 9);
 
-	void ProcessInput();
+	void Update(float deltaTime) override;
 
 	// Getters/setters for private variables
 

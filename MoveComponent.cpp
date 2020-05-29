@@ -9,9 +9,8 @@
 #include "MoveComponent.h"
 #include "Actor.h"
 
-MoveComponent::MoveComponent(class Actor* owner, int updateOrder)
+MoveComponent::MoveComponent(class Actor* owner, float updateOrder)
 	:Component(owner, updateOrder)
-	, mControlCamera(0)
 {
 
 }
@@ -22,31 +21,10 @@ void MoveComponent::Update(float deltaTime)
 	Vector2 pos = mOwner->GetPosition();
 	float rightSpeed = mOwner->GetRightSpeed();
 	float downSpeed = mOwner->GetDownSpeed();
-	pos.x += rightSpeed * deltaTime;
-	pos.y += downSpeed * deltaTime;
-	if (mControlCamera == 1)
+	if (rightSpeed || downSpeed)
 	{
-		// Move camera if character moves so far
-		Game* game = mOwner->GetGame();
-		Vector2 camera = game->GetCamera();
-		Vector2 diff(pos.x - camera.x, pos.y - camera.y);
-		if (diff.x < 300.0f)
-		{
-			camera.x = pos.x - 300.0f;
-		}
-		else if (diff.x > 724.0f)
-		{
-			camera.x = pos.x - 724.0f;
-		}
-		if (diff.y < 200.0f)
-		{
-			camera.y = pos.y - 200.0f;
-		}
-		else if (diff.y > 568.0f)
-		{
-			camera.y = pos.y - 568.0f;
-		}
-		game->SetCamera(camera.x, camera.y);
+		pos.x += rightSpeed * deltaTime;
+		pos.y += downSpeed * deltaTime;
+		mOwner->SetPosition(pos);
 	}
-	mOwner->SetPosition(pos);
 }

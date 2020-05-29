@@ -21,7 +21,7 @@ public:
 	virtual void SetTexture(SDL_Texture* texture, int xLoc = 0, int yLoc = 0);
 
 	float GetDrawOrder() const { return mDrawOrder; }
-	float SetDrawOrder(float x) { mDrawOrder = x; }
+	void SetDrawOrder(float x) { mDrawOrder = x; }
 	int GetTexHeight() const { return mTexHeight; }
 	int GetTexWidth() const { return mTexWidth; }
 protected:

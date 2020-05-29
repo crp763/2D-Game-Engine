@@ -8,6 +8,7 @@
 
 #include "AnimSpriteComponent.h"
 #include "Math.h"
+#include "Actor.h"
 
 AnimSpriteComponent::AnimSpriteComponent(Actor* owner, float drawOrder)
 	:SpriteComponent(owner, drawOrder)

@@ -10,7 +10,8 @@
 
 int main(int argc, char** argv)
 {
-	Game game;
+	Settings settings(1224.0f, 780.0f);
+	Game game(&settings);
 	bool success = game.Initialize();
 	if (success)
 	{

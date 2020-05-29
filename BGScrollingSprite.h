@@ -14,7 +14,7 @@ class BGScrollingSprite : public SpriteComponent
 {
 public:
 	// Set draw order to default to lower (so it's in the background)
-	BGScrollingSprite(class Actor* owner, int drawOrder = 10);
+	BGScrollingSprite(class Actor* owner, int drawOrder = 0);
 	// Update/draw overriden from parent
 	void Update(float deltaTime) override;
 	void Draw(SDL_Renderer* renderer, Vector2 camera) override;
@@ -23,6 +23,7 @@ public:
 	void SetBGTexDims(int m, int n);
 	// Get/set screen size and scroll speed
 	void SetScreenSize(const Vector2& size) { mScreenSize = size; }
+	void SetSpriteSize(const Vector2& size) { mSpriteSize = size; }
 	void SetScrollSpeed(float speedX, float speedY) { mScrollSpeed.x = speedX, mScrollSpeed.y = speedY; }
 	void SetFixedBG(int yn) { mFixedBG = yn; }
 	Vector2 GetScrollSpeed() const { return mScrollSpeed; }
@@ -35,7 +36,8 @@ private:
 	};
 	int mCount; // Keep track of number of elements because std::vector.size() is not a signed int and I don't want to write a bunch of logic to cast
 	std::vector<BGTexture> mBGTextures;
-	Vector2 mScreenSize; // Assumes all textures are the same size
+	Vector2 mScreenSize;
+	Vector2 mSpriteSize; // Assumes all textures are the same size
 	std::vector<int> mBGTexDim = { 0,0 }; // Maps row vector of BG textures into an m-by-n matrix
 	Vector2 mScrollSpeed;
 	int mFixedBG = 0; // If 1, BG is fixed with respect to the camera. If 0, BG moves with the camera

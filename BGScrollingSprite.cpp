@@ -37,24 +37,24 @@ void BGScrollingSprite::Draw(SDL_Renderer* renderer, Vector2 camera)
 		// This loop needs to be in Draw() for access to the camera
 		while (bg.mOffset.x + (mFixedBG - 1)*camera.x < -mScreenSize.x)
 		{
-			bg.mOffset.x += mScreenSize.x * mBGTexDim[1];
+			bg.mOffset.x += mSpriteSize.x * mBGTexDim[1];
 		}
 		while (bg.mOffset.x + (mFixedBG - 1) * camera.x > mScreenSize.x)
 		{
-			bg.mOffset.x -= mScreenSize.x * mBGTexDim[1];
+			bg.mOffset.x -= mSpriteSize.x * mBGTexDim[1];
 		}
 		while (bg.mOffset.y + (mFixedBG - 1) * camera.y < -mScreenSize.y)
 		{
-			bg.mOffset.y += mScreenSize.y * mBGTexDim[0];
+			bg.mOffset.y += mSpriteSize.y * mBGTexDim[0];
 		}
 		while (bg.mOffset.y + (mFixedBG - 1) * camera.y > mScreenSize.y)
 		{
-			bg.mOffset.y -= mScreenSize.y * mBGTexDim[0];
+			bg.mOffset.y -= mSpriteSize.y * mBGTexDim[0];
 		}
 		SDL_Rect r;
 		// Assume screen size dimensions
-		r.w = static_cast<int>(mScreenSize.x);
-		r.h = static_cast<int>(mScreenSize.y);
+		r.w = static_cast<int>(mSpriteSize.x);
+		r.h = static_cast<int>(mSpriteSize.y);
 		// Center the rectangle around the position of the owner
 		r.x = static_cast<int>(mOwner->GetPosition().x + bg.mOffset.x + (mFixedBG-1)*camera.x);
 		r.y = static_cast<int>(mOwner->GetPosition().y + bg.mOffset.y + (mFixedBG-1)*camera.y);
@@ -76,7 +76,7 @@ void BGScrollingSprite::SetBGTextures(const std::vector<SDL_Texture*>& textures)
 		BGTexture temp;
 		temp.mTexture = tex;
 		// Each texture is screen width in offset
-		temp.mOffset.x = mCount * mScreenSize.x;
+		temp.mOffset.x = mCount * mSpriteSize.x;
 		temp.mOffset.y = 0;
 		mBGTextures.emplace_back(temp);
 		mCount++;
@@ -90,8 +90,8 @@ void BGScrollingSprite::SetBGTexDims(int m, int n)
 	int row = 0, col = 0;
 	for (int i = 0; i < mCount; i++)
 	{
-		mBGTextures[i].mOffset.x = row * mScreenSize.x;
-		mBGTextures[i].mOffset.y = col * mScreenSize.y;
+		mBGTextures[i].mOffset.x = row * mSpriteSize.x;
+		mBGTextures[i].mOffset.y = col * mSpriteSize.y;
 		row++;
 		if (row == n)
 		{

@@ -22,6 +22,9 @@
     <ClCompile Include="AnimCharComponent.cpp" />
     <ClCompile Include="InputComponent.cpp" />
     <ClCompile Include="MoveComponent.cpp" />
+    <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="MoveCollisionComponent.cpp" />
+    <ClCompile Include="MapGrid.cpp" />
     <ClCompile Include="SpriteComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -31,6 +34,10 @@
     <ClInclude Include="Component.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="AnimCharComponent.h" />
+    <ClInclude Include="ReadMapCSV.h" />
+    <ClInclude Include="MoveCollisionComponent.h" />
+    <ClInclude Include="Settings.h" />
+    <ClInclude Include="SortFunctions.h" />
     <ClInclude Include="MoveComponent.h" />
     <ClInclude Include="InputComponent.h" />
     <ClInclude Include="MapGrid.h" />
@@ -91,6 +98,7 @@
       <AdditionalLibraryDirectories>..\external\SDL\lib\win\x86;..\external\GLEW\lib\win\x86;..\external\SOIL\lib\win\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;SDL2.lib;SDL2main.lib;SDL2_ttf.lib;SDL2_mixer.lib;SDL2_image.lib;glew32.lib;SOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:msvcrt.lib %(AdditionalOptions)</AdditionalOptions>
+      <Profile>true</Profile>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)\..\external\SDL\lib\win\x86\*.dll" "$(OutDir)" /i /s /y

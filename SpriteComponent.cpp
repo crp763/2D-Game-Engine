@@ -21,11 +21,12 @@ SpriteComponent::SpriteComponent(Actor* owner, float drawOrder)
 	,mTexYLoc(0)
 {
 	mOwner->GetGame()->AddSprite(this);
+	owner->SetSprite(this);
 }
 
 SpriteComponent::~SpriteComponent()
 {
-	mOwner->GetGame()->RemoveSprite(this);
+	// mOwner->GetGame()->RemoveSprite(this);
 }
 
 void SpriteComponent::Draw(SDL_Renderer* renderer, Vector2 camera)

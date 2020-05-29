@@ -13,13 +13,20 @@
 #include "SpriteComponent.h"
 #include "PlayerChar.h"
 #include "BGScrollingSprite.h"
+#include "SortFunctions.h"
+#include <math.h>
+#include <fstream>
+#include <iostream>
+#include "ReadMapCSV.h"
 
-Game::Game()
+Game::Game(Settings* set)
 :mWindow(nullptr)
+,mSettings(set)
 ,mRenderer(nullptr)
 ,mIsRunning(true)
 ,mUpdatingActors(false)
 ,mCamera(0.0f,0.0f)
+,mMapBndry(2000.0f, 2000.0f)
 {
 	
 }
@@ -32,7 +39,7 @@ bool Game::Initialize()
 		return false;
 	}
 	
-	mWindow = SDL_CreateWindow("Game Programming in C++ (Chapter 2)", 100, 100, 1024, 768, 0);
+	mWindow = SDL_CreateWindow("Game Programming in C++ (Chapter 2)", 100, 100, mSettings->GetScreenX(), mSettings->GetScreenY(), 0);
 	if (!mWindow)
 	{
 		SDL_Log("Failed to create window: %s", SDL_GetError());
@@ -92,17 +99,22 @@ void Game::ProcessInput()
 
 void Game::UpdateGame()
 {
+	// Some processes will only be updated at larger intervals, to
+	// help reduce CPU loading
+	float slowDeltaTime = 0;
 	// Compute delta time
 	// Wait until 16ms has elapsed since last frame
 	while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 16))
 		;
 
 	float deltaTime = (SDL_GetTicks() - mTicksCount) / 1000.0f;
-	if (deltaTime > 0.02f)
+	if (deltaTime > 0.03f)
 	{
-		deltaTime = 0.02f;
+		std::cout << deltaTime << std::endl;
+		deltaTime = 0.03f;
 	}
 	mTicksCount = SDL_GetTicks();
+	slowDeltaTime += deltaTime;
 
 	// Update all actors
 	mUpdatingActors = true;
@@ -112,28 +124,28 @@ void Game::UpdateGame()
 	}
 	mUpdatingActors = false;
 
-	// Move any pending actors to mActors
+	this->SetCamera();
+
+	/*if (slowDeltaTime > 0.33)
+	{
+		for (auto actor : mSlowActors)
+		{
+			actor->Update(slowDeltaTime);
+		}
+		slowDeltaTime = 0.0f;
+	}*/
+
+	// Add pending actors
 	for (auto pending : mPendingActors)
 	{
 		mActors.emplace_back(pending);
 	}
 	mPendingActors.clear();
-
-	// Add any dead actors to a temp vector
-	std::vector<Actor*> deadActors;
-	for (auto actor : mActors)
+	for (auto pending : mPendingSlowActors)
 	{
-		if (actor->GetState() == Actor::EDead)
-		{
-			deadActors.emplace_back(actor);
-		}
+		mSlowActors.emplace_back(pending);
 	}
-
-	// Delete dead actors (which removes them from mActors)
-	for (auto actor : deadActors)
-	{
-		delete actor;
-	}
+	mPendingSlowActors.clear();
 }
 
 void Game::GenerateOutput()
@@ -141,46 +153,139 @@ void Game::GenerateOutput()
 	SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(mRenderer);
 	
-	// Draw all sprite components
+	// Draw all sprite components assigned to entire game: TEMPORARY
+	std::sort(mSprites.begin(), mSprites.end(), CompareDrawOrder);
 	for (auto sprite : mSprites)
 	{
 		sprite->Draw(mRenderer, mCamera);
 	}
+
+	// Draw all sprites by looping through all map grids to be rendered
+	/*for (auto grid : mMapGrids)
+	{
+		if (grid->OnScreen()) // returns true if the grid is in camera view, or if it's the map grid at (0,0) where backgrounds/foregrounds are stored
+		{
+			grid->Draw();
+		}
+	}*/
+
+	// :::::::::: Draw player UI ::::::::::
+	// UI Background
+	SDL_SetRenderDrawColor(mRenderer, 150, 150, 115, 255);
+	SDL_Rect UI; 
+	UI.w = mSettings->GetScreenX();
+	UI.h = 150;
+	UI.x = 0;
+	UI.y = mSettings->GetScreenY() - 150;
+	SDL_RenderFillRect(mRenderer, &UI);
+	// Health, mana, xp bars
+	SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+	SDL_Rect Health = UI;
+	Health.x += 20;
+	Health.y += 15;
+	Health.w = 300;
+	Health.h = 25; 
+	SDL_RenderFillRect(mRenderer, &Health);
+	SDL_Rect Mana = Health; Mana.y += 35;
+	SDL_RenderFillRect(mRenderer, &Mana);
+	SDL_Rect Exp = Mana; Exp.y += 35;
+	SDL_RenderFillRect(mRenderer, &Exp);
+	Health.w *= mPlayerChar->GetHealthPct();
+	SDL_SetRenderDrawColor(mRenderer, 200, 0, 0, 255);
+	SDL_RenderFillRect(mRenderer, &Health);
+	Mana.w *= mPlayerChar->GetManaPct();
+	SDL_SetRenderDrawColor(mRenderer, 0, 0, 200, 255);
+	SDL_RenderFillRect(mRenderer, &Mana);
+	Exp.w *= mPlayerChar->GetExpPct();
+	SDL_SetRenderDrawColor(mRenderer, 200, 200, 0, 255);
+	SDL_RenderFillRect(mRenderer, &Exp);
+
 
 	SDL_RenderPresent(mRenderer);
 }
 
 void Game::LoadData()
 {
+	// ::::::::: CREATE MAP ::::::::::
+	// Load map data
+	int gridSize = 10; // Size of each square MapGrid object
+	std::vector<int> mapSize = { 100,100 }; // Size of map in tiles
+	std::vector<int> tileSetSize = { 3,6,17,11 }; // Pairs of width,height values in width,height,width,height,etc. order
+	std::vector<std::string> mapFiles = {
+		"Map01/test_map_01_Tile_Layer_1.csv",
+		"Map01/test_map_01_Tile_Layer_2.csv"
+	};
+	std::vector<SDL_Texture*> mapTilesets = {
+		GetTexture("Assets/LPC_Base_Assets/tiles/grass.png"),
+		GetTexture("Assets/LPC_Base_Assets/tiles/castle_outside.png")
+	};
+	std::string csvLine;
+	std::vector<int> csvRead1;
+	ReadMapCSV(mapFiles[0], csvRead1);
+	std::vector<int> csvRead2;
+	// Create grids and tiles for the map
+	int m = ceil(mapSize[0] / gridSize);
+	int n = ceil(mapSize[1] / gridSize);
+	/*for (int i = 0; i < m * n; i++)
+	{
+
+	}*/
+
+
 	// Create player's PlayerChar
 	mPlayerChar = new PlayerChar(this);
 	mPlayerChar->SetPosition(Vector2(400.0f, 384.0f));
-	mPlayerChar->SetScale(1.5f);
+	mPlayerChar->SetZLevel(3);
+	mPlayerChar->SetScale(1.3f);
 	mPlayerChar->SetSpriteSheetPos(3, 4);
 	mPlayerChar->SetKeys(SDL_SCANCODE_SPACE, SDL_SCANCODE_W, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_D,
 		SDL_SCANCODE_LSHIFT, SDL_SCANCODE_1, SDL_SCANCODE_2, SDL_SCANCODE_3, SDL_SCANCODE_4, SDL_SCANCODE_5);
-	mPlayerChar->SetCameraControl(1);
+
+	int j = 0;
+	int k = 0;
+	for (int i = 0; i < 1800; i++)
+	{
+		if (k > 50) { k = 0; j = j + 1; }
+		new PlayerChar(this);
+		mPendingActors.back()->SetPosition(Vector2(400.0f + 50.0f*j, 100.0f + 50.0f*k));
+		mPendingActors.back()->SetZLevel(3);
+		mPendingActors.back()->SetScale(1.8f);
+		mPendingActors.back()->SetSpriteSheetPos(6,4);
+		k = k + 1;
+
+	}
 
 	// Create actor for the background (this doesn't need a subclass)
-	Actor* temp = new Actor(this);
-	temp->SetPosition(Vector2(0.0f, 0.0f));
+	Actor* bgAct = new Actor(this, 0);
+	bgAct->SetZLevel(0);
+	bgAct->SetPosition(Vector2(0.0f, 0.0f));
 	// Create the "far back" background
-	BGScrollingSprite* bg = new BGScrollingSprite(temp);
-	bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+	BGScrollingSprite* bg = new BGScrollingSprite(bgAct);
+	bg->SetScreenSize(Vector2(mSettings->GetScreenX(), mSettings->GetScreenY()));
+	bg->SetSpriteSize(Vector2(1024.0f, 768.0f));
 	std::vector<SDL_Texture*> bgtexs = {
 		GetTexture("Assets/Farback01.png"),
 		GetTexture("Assets/Farback02.png"),
 		GetTexture("Assets/Farback02.png"),
 		GetTexture("Assets/Farback01.png")
 	};
-	bg->SetFixedBG(0);
+	bg->SetFixedBG(1);
 	bg->SetBGTextures(bgtexs);
 	bg->SetBGTexDims(2, 2);
 	bg->SetScrollSpeed(0.0f,0.0f);
 	// Create the closer background
-	bg = new BGScrollingSprite(temp, 50);
-	bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+	Actor* fgAct = new Actor(this, 0);
+	fgAct->SetZLevel(10);
+	fgAct->SetPosition(Vector2(0.0f, 0.0f));
+	/*bg = new BGScrollingSprite(fgAct, 50);
+	bg->SetScreenSize(Vector2(mSettings->GetScreenX(), mSettings->GetScreenY()));
+	bg->SetSpriteSize(Vector2(1024.0f, 768.0f));
 	bgtexs = {
+		GetTexture("Assets/Stars.png"),
+		GetTexture("Assets/Stars.png"),
+		GetTexture("Assets/Stars.png"),
+		GetTexture("Assets/Stars.png"),
+		GetTexture("Assets/Stars.png"),
 		GetTexture("Assets/Stars.png"),
 		GetTexture("Assets/Stars.png"),
 		GetTexture("Assets/Stars.png"),
@@ -188,8 +293,8 @@ void Game::LoadData()
 	};
 	bg->SetFixedBG(0);
 	bg->SetBGTextures(bgtexs);
-	bg->SetBGTexDims(2, 2);
-	bg->SetScrollSpeed(-300.0f, 200.0f);
+	bg->SetBGTexDims(3, 3);
+	bg->SetScrollSpeed(-300.0f, 200.0f);*/
 }
 
 void Game::UnloadData()
@@ -251,65 +356,85 @@ void Game::Shutdown()
 	SDL_Quit();
 }
 
-void Game::AddActor(Actor* actor)
+void Game::AddActor(Actor* actor, int slow)
 {
+
 	// If we're updating actors, need to add to pending
-	if (mUpdatingActors)
+	if (slow == 0)
 	{
 		mPendingActors.emplace_back(actor);
 	}
 	else
 	{
-		mActors.emplace_back(actor);
+		mPendingSlowActors.emplace_back(actor);
 	}
 }
 
-void Game::RemoveActor(Actor* actor)
+void Game::RemoveActor(Actor* actor, int slow)
 {
-	// Is it in pending actors?
-	auto iter = std::find(mPendingActors.begin(), mPendingActors.end(), actor);
-	if (iter != mPendingActors.end())
+	if (slow == 0)
 	{
-		// Swap to end of vector and pop off (avoid erase copies)
-		std::iter_swap(iter, mPendingActors.end() - 1);
-		mPendingActors.pop_back();
+		auto iter = std::find(mActors.begin(), mActors.end(), actor);
+		if (iter != mActors.end())
+		{
+			// Swap to end of vector and pop off (avoid erase copies)
+			std::iter_swap(iter, mActors.end() - 1);
+			mActors.pop_back();
+		}
 	}
-
-	// Is it in actors?
-	iter = std::find(mActors.begin(), mActors.end(), actor);
-	if (iter != mActors.end())
+	else
 	{
-		// Swap to end of vector and pop off (avoid erase copies)
-		std::iter_swap(iter, mActors.end() - 1);
-		mActors.pop_back();
+		auto iter = std::find(mSlowActors.begin(), mSlowActors.end(), actor);
+		if (iter != mSlowActors.end())
+		{
+			// Swap to end of vector and pop off (avoid erase copies)
+			std::iter_swap(iter, mSlowActors.end() - 1);
+			mSlowActors.pop_back();
+		}
 	}
 }
 
 void Game::AddSprite(SpriteComponent* sprite)
 {
-	// Find the insertion point in the sorted vector
-	// (The first element with a higher draw order than me)
-	//int myDrawOrder = sprite->GetDrawOrder();
-	//auto iter = mSprites.begin();
-	//for ( ;
-	//	iter != mSprites.end();
-	//	++iter)
-	//{
-	//	if (myDrawOrder < (*iter)->GetDrawOrder())
-	//	{
-	//		break;
-	//	}
-	//}
-
-	//// Inserts element before position of iterator
-	//mSprites.insert(iter, sprite);
-	mSprites.insert(mSprites.end(), sprite);
-	std::sort(mSprites.begin(), mSprites.end());
+	{
+		mSprites.emplace_back(sprite);
+		std::sort(mSprites.begin(), mSprites.end(), CompareDrawOrder);
+	}
 }
 
 void Game::RemoveSprite(SpriteComponent* sprite)
 {
-	// (We can't swap because it ruins ordering)
 	auto iter = std::find(mSprites.begin(), mSprites.end(), sprite);
-	mSprites.erase(iter);
+	if (iter != mSprites.end())
+	{
+		// Swap to end of vector and pop off (avoid erase copies)
+		std::iter_swap(iter, mSprites.end() - 1);
+		mSprites.pop_back();
+		std::sort(mSprites.begin(), mSprites.end(), CompareDrawOrder);
+	}
+}
+
+void Game::SetCamera()
+{
+	Vector2 PlayerPos = mPlayerChar->GetPosition();
+	mCamera.x = PlayerPos.x - mSettings->GetScreenX() / 2;
+	mCamera.y = PlayerPos.y - (mSettings->GetScreenY() - 75) / 2;
+	if (mCamera.x < 0)
+	{
+		mCamera.x = 0;
+	}
+	else if (mCamera.x + mSettings->GetScreenX() > mMapBndry.x)
+	{
+		mCamera.x = mMapBndry.x - mSettings->GetScreenX();
+
+	}
+	if (mCamera.y < 0)
+	{
+		mCamera.y = 0;
+	}
+	else if (mCamera.y + mSettings->GetScreenY() - 150 > mMapBndry.y)
+	{
+		mCamera.y = mMapBndry.y - mSettings->GetScreenY() + 150;
+
+	}
 }

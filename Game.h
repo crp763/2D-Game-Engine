@@ -12,26 +12,32 @@
 #include <string>
 #include <vector>
 #include "Math.h"
+#include "Settings.h"
+#include "MapGrid.h"
 
 class Game
 {
 public:
-	Game();
+	Game(Settings* set);
 	bool Initialize();
 	void RunLoop();
 	void Shutdown();
 
-	void AddActor(class Actor* actor);
-	void RemoveActor(class Actor* actor);
+	void AddActor(class Actor* actor, int slow);
+	void RemoveActor(class Actor* actor, int slow);
 
 	void AddSprite(class SpriteComponent* sprite);
 	void RemoveSprite(class SpriteComponent* sprite);
 
+	std::vector<class Actor*> GetActors() { return mActors; }
+
 	Vector2 GetCamera() { return mCamera; }
-	void SetCamera(float x, float y) { mCamera.x = x; mCamera.y = y; }
+	void SetCamera();
+	Vector2 GetMapSize() { return mMapBndry; }
 	
 	SDL_Texture* GetTexture(const std::string& fileName);
-private:
+protected:
+	Settings* mSettings;
 	void ProcessInput();
 	void UpdateGame();
 	void GenerateOutput();
@@ -43,16 +49,25 @@ private:
 
 	// All the actors in the game
 	std::vector<class Actor*> mActors;
-	// Any pending actors
 	std::vector<class Actor*> mPendingActors;
+	std::vector<class Actor*> mSlowActors;
+	std::vector<class Actor*> mPendingSlowActors;
+	std::vector<class Actor*> mDeadActors;
 
-	// All the sprite components drawn
+	// All the map grids
+	std::vector<class MapGrid*> mMapGrids;
+
+
+	// All the sprite components owned by the Game() object specifically
+	// This should be restricted to background/foreground sprites, like
+	// backdrops and weather effects
 	std::vector<class SpriteComponent*> mSprites;
 
 	SDL_Window* mWindow;
 	SDL_Renderer* mRenderer;
 	Uint32 mTicksCount;
 	Vector2 mCamera;
+	Vector2 mMapBndry;
 	bool mIsRunning;
 	// Track if we're updating actors right now
 	bool mUpdatingActors;

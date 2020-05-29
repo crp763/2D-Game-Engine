@@ -10,20 +10,42 @@
 #include "Game.h"
 #include "Component.h"
 #include <algorithm>
+#include "SortFunctions.h"
 
-Actor::Actor(Game* game)
-	:mState(EActive)
+Actor::Actor(Game* game, int slow)
+	:mState(0)
 	, mPosition(Vector2::Zero)
 	, mScale(1.0f)
 	, mRotation(0.0f)
+	, mCollisionSize(8.0f)
+	, mCollides(1)
 	, mGame(game)
+	, mZLevel(0)
+	, mSlow(slow)
+	// Resources
+	, mMaxHealth(100)
+	, mCurrHealth(100)
+	, mHealthMod(0)
+	, mMaxMana(100)
+	, mCurrMana(100)
+	, mManaMod(0)
+	, mExp(0)
+	, mExpMod(1)
+	// Offensive stats array (Phys, Fire, Ice, Lightning, Poison, Time, Gravity, Holy)
+	, mOffStats({ 0, 0, 0, 0, 0, 0, 0, 0 })
+	// Defensive stats array (Phys, Fire, Ice, Lightning, Poison, Time, Gravity, Holy)
+	, mDefStats({ 0, 0, 0, 0, 0, 0, 0, 0 })
+	// Meters
+	, mTempMeter(0)
+	, mPoisonMeter(0)
+	, mHolyMeter(0)
 {
-	mGame->AddActor(this);
+	mGame->AddActor(this, mSlow);
 }
 
 Actor::~Actor()
 {
-	mGame->RemoveActor(this);
+	mGame->RemoveActor(this, mSlow);
 	// Need to delete components
 	// Because ~Component calls RemoveComponent, need a different style loop
 	while (!mComponents.empty())
@@ -48,10 +70,14 @@ void Actor::SetSpriteSheetPos(int x, int y)
 
 void Actor::Update(float deltaTime)
 {
-	if (mState == EActive)
+	if (mState == 0)
 	{
 		UpdateComponents(deltaTime);
 		UpdateActor(deltaTime);
+	}
+	if (mSprite)
+	{
+		mSprite->SetDrawOrder(10000*mZLevel + mPosition.y / 100.0f); 
 	}
 }
 
@@ -67,24 +93,38 @@ void Actor::UpdateActor(float deltaTime)
 {
 }
 
+void Actor::Damage(float damage, int type)
+{
+	int totalDamage = damage - mDefStats[type];
+	if (totalDamage > 0)
+	{
+		mCurrHealth -= totalDamage;
+		if (mCurrHealth < 0)
+		{
+			this->Death();
+		}
+	}
+}
+
+void Actor::Death()
+{
+	mGame->RemoveActor(this, mSlow);
+	this->~Actor();
+}
+
+void Actor::Draw(SDL_Renderer* rend, Vector2 camera)
+{
+	if (mSprite)
+	{
+		mSprite->Draw(rend, camera);
+	}
+}
+
 void Actor::AddComponent(Component* component)
 {
 	// Find the insertion point in the sorted vector
-	// (The first element with a order higher than me)
-	int myOrder = component->GetUpdateOrder();
-	auto iter = mComponents.begin();
-	for (;
-		iter != mComponents.end();
-		++iter)
-	{
-		if (myOrder < (*iter)->GetUpdateOrder())
-		{
-			break;
-		}
-	}
-
-	// Inserts element before position of iterator
-	mComponents.insert(iter, component);
+	mComponents.emplace_back(component);
+	std::sort(mComponents.begin(), mComponents.end(), CompareUpdateOrder);
 }
 
 void Actor::RemoveComponent(Component* component)
