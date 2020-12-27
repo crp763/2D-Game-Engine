@@ -20,15 +20,16 @@
 #include "ReadMapCSV.h"
 
 Game::Game(Settings* set)
-:mWindow(nullptr)
-,mSettings(set)
-,mRenderer(nullptr)
-,mIsRunning(true)
-,mUpdatingActors(false)
-,mCamera(0.0f,0.0f)
-,mMapBndry(2000.0f, 2000.0f)
+	:mWindow(nullptr)
+	, mSettings(set)
+	, mRenderer(nullptr)
+	, mIsRunning(true)
+	, mUpdatingActors(false)
+	, mCamera(0.0f, 0.0f)
+	, mMapBndry(2000.0f, 2000.0f)
+	, mMapSize(10, 10)
+	, mGridSize(10)
 {
-	
 }
 
 bool Game::Initialize()
@@ -103,15 +104,16 @@ void Game::UpdateGame()
 	// help reduce CPU loading
 	float slowDeltaTime = 0;
 	// Compute delta time
-	// Wait until 16ms has elapsed since last frame
-	while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 16))
+	// Wait until 16ms has elapsed since last frame for 60fps
+	// Wait until 32ms has elapsed since last frame for 33fps
+	while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 33))
 		;
 
 	float deltaTime = (SDL_GetTicks() - mTicksCount) / 1000.0f;
-	if (deltaTime > 0.03f)
+	if (deltaTime > 0.1f)
 	{
 		std::cout << deltaTime << std::endl;
-		deltaTime = 0.03f;
+		deltaTime = 0.1f;
 	}
 	mTicksCount = SDL_GetTicks();
 	slowDeltaTime += deltaTime;
@@ -126,14 +128,14 @@ void Game::UpdateGame()
 
 	this->SetCamera();
 
-	/*if (slowDeltaTime > 0.33)
+	if (slowDeltaTime > 1.00)
 	{
 		for (auto actor : mSlowActors)
 		{
 			actor->Update(slowDeltaTime);
 		}
 		slowDeltaTime = 0.0f;
-	}*/
+	}
 
 	// Add pending actors
 	for (auto pending : mPendingActors)
@@ -160,14 +162,18 @@ void Game::GenerateOutput()
 		sprite->Draw(mRenderer, mCamera);
 	}
 
+	// Assign all sprites to their map grids
+    AssignMapGridSprites();
+
 	// Draw all sprites by looping through all map grids to be rendered
-	/*for (auto grid : mMapGrids)
+	// Map grids must be drawn from the bottom up (in the -Y direction) for the Z-position layering to work properly
+	for (auto grid : mMapGrids)
 	{
-		if (grid->OnScreen()) // returns true if the grid is in camera view, or if it's the map grid at (0,0) where backgrounds/foregrounds are stored
+		if (grid->OnScreen(mCamera, mSettings)) // returns true if the grid is in camera view, or if it's the map grid at (0,0) where backgrounds/foregrounds are stored
 		{
-			grid->Draw();
+			grid->Draw(mRenderer, mCamera);
 		}
-	}*/
+	}
 
 	// :::::::::: Draw player UI ::::::::::
 	// UI Background
@@ -207,10 +213,18 @@ void Game::GenerateOutput()
 void Game::LoadData()
 {
 	// ::::::::: CREATE MAP ::::::::::
-	// Load map data
-	int gridSize = 10; // Size of each square MapGrid object
-	std::vector<int> mapSize = { 100,100 }; // Size of map in tiles
-	std::vector<int> tileSetSize = { 3,6,17,11 }; // Pairs of width,height values in width,height,width,height,etc. order
+	int i = mMapSize.x * mMapSize.y - 1; // Map grid index (starts from 0 at top left corners, goes left-to-right then top-to-bottom in index order)
+	for (int m = mMapSize.y; m > 0; m--) // Loop over y direction (bottom to top)
+	{
+		for (int n = mMapSize.x; n > 0; n--) // Loop over x direction (right to left)
+		{
+			MapGrid* grid = new MapGrid((n - 1) * mGridSize * 32, (m - 1) * mGridSize * 32, i, mGridSize, this); // Assign position of top left corner, indix, grid size (number of 32px tiles on each edge), and game*
+			mMapGrids.emplace_back(grid);
+			std::cout << "Map Grid " << i << ", X = " << ((n - 1) * mGridSize * 32) << ", Y = " << (m - 1) * mGridSize * 32 << std::endl;
+			i--;
+		}
+	}
+
 	std::vector<std::string> mapFiles = {
 		"Map01/test_map_01_Tile_Layer_1.csv",
 		"Map01/test_map_01_Tile_Layer_2.csv"
@@ -223,14 +237,6 @@ void Game::LoadData()
 	std::vector<int> csvRead1;
 	ReadMapCSV(mapFiles[0], csvRead1);
 	std::vector<int> csvRead2;
-	// Create grids and tiles for the map
-	int m = ceil(mapSize[0] / gridSize);
-	int n = ceil(mapSize[1] / gridSize);
-	/*for (int i = 0; i < m * n; i++)
-	{
-
-	}*/
-
 
 	// Create player's PlayerChar
 	mPlayerChar = new PlayerChar(this);
@@ -394,6 +400,16 @@ void Game::RemoveActor(Actor* actor, int slow)
 	}
 }
 
+void Game::AddActorGrid(class Actor* actor, int i)
+{
+	mMapGrids[i]->AddActor(actor);
+}
+
+void Game::RemoveActorGrid(class Actor* actor, int i)
+{
+	mMapGrids[i]->RemoveActor(actor);
+}
+
 void Game::AddSprite(SpriteComponent* sprite)
 {
 	{
@@ -412,6 +428,88 @@ void Game::RemoveSprite(SpriteComponent* sprite)
 		mSprites.pop_back();
 		std::sort(mSprites.begin(), mSprites.end(), CompareDrawOrder);
 	}
+}
+
+void Game::AssignMapGridSprites()
+{
+	for (auto sprite : mSprites)
+	{
+		int i = this->GetMapGridIndex(sprite->GetXLoc(), sprite->GetYLoc());
+		if (i != -1)
+		{
+			mMapGrids[i]->AddSprite(sprite);
+		}
+		// sprite->Draw(mRenderer, mCamera);
+	}
+}
+
+int Game::GetMapGridIndex(int x, int y)
+{
+	int n = (int) x / (32*mGridSize);
+	int m = (int) y / (32*mGridSize);
+	int i = (m * mMapSize.x) + n;
+	if ((i < mMapSize.x * mMapSize.y) && (i >= 0))
+	{
+		return i;
+	}
+	return -1;
+}
+
+Vector2 Game::GetMapGridPosition(int i)
+{
+	Vector2 pos;
+	pos.y = (int) i / mMapSize.x;
+	pos.y = i - mMapSize.x * pos.y;
+	return pos;
+}
+
+std::vector<class Actor*> Game::GetActorsSurroundingGrids(class Actor* actor)
+{
+	int quad = 0; // Determine which quadrant of the current grid the actor is standing in
+	int i = actor->GetGrid();
+	std::vector<class Actor*> list; // List of actors to return
+	std::vector<int> border_inds;
+	if (actor->GetGrid() != -1)
+	{
+		list = mMapGrids[i]->GetActors();
+		Vector2 pos = actor->GetPosition() - mMapGrids[i]->GetPosition();
+		if (pos.x > 16 * mGridSize)
+		{
+			quad++;
+		}
+		if (pos.y > 16 * mGridSize)
+		{
+			quad = quad + 2;
+		}
+		switch (quad) {
+		case 0 :
+			border_inds.insert(border_inds.end(), i - 1);
+			border_inds.insert(border_inds.end(), i - mMapSize.x);
+			border_inds.insert(border_inds.end(), i - 1 - mMapSize.x);
+		case 1 :
+			border_inds.insert(border_inds.end(), i + 1);
+			border_inds.insert(border_inds.end(), i - mMapSize.x);
+			border_inds.insert(border_inds.end(), i + 1 - mMapSize.x);
+		case 2 :
+			border_inds.insert(border_inds.end(), i - 1);
+			border_inds.insert(border_inds.end(), i + mMapSize.x);
+			border_inds.insert(border_inds.end(), i - 1 + mMapSize.x);
+		case 3 :
+			border_inds.insert(border_inds.end(), i + 1);
+			border_inds.insert(border_inds.end(), i + mMapSize.x);
+			border_inds.insert(border_inds.end(), i + 1 + mMapSize.x);
+		}
+		for (auto ind : border_inds)
+		{
+			if (ind != -1)
+			{
+				std::vector<class Actor*> append = mMapGrids[i]->GetActors();
+				list.insert(list.end(), append.begin(), append.end());
+				append.clear();
+			}
+		}
+	}
+	return list;
 }
 
 void Game::SetCamera()

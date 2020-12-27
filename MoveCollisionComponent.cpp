@@ -24,7 +24,7 @@ void MoveCollisionComponent::Update(float deltaTime)
 		Vector2 charPos = mOwner->GetPosition();
 		float charSize = mOwner->GetCollisionSize() * mOwner->GetScale();
 		Game* game = mOwner->GetGame();
-		std::vector<class Actor*> actors = game->GetActors();
+		std::vector<class Actor*> actors = game->GetActorsSurroundingGrids(mOwner);
 		for (auto actor : actors)
 		{
 			if (actor != mOwner && actor->GetCollisionBehavior())

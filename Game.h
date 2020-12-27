@@ -26,10 +26,18 @@ public:
 	void AddActor(class Actor* actor, int slow);
 	void RemoveActor(class Actor* actor, int slow);
 
+	void AddActorGrid(class Actor* actor, int i);
+	void RemoveActorGrid(class Actor* actor, int i);
+
 	void AddSprite(class SpriteComponent* sprite);
 	void RemoveSprite(class SpriteComponent* sprite);
 
+	void AssignMapGridSprites();
+	int Game::GetMapGridIndex(int x, int y); // Returns index of map grid based on input location
+	Vector2 Game::GetMapGridPosition(int i); // Returns location of top left corner of any grid by its index
+
 	std::vector<class Actor*> GetActors() { return mActors; }
+	std::vector<class Actor*> GetActorsSurroundingGrids(class Actor* actor);
 
 	Vector2 GetCamera() { return mCamera; }
 	void SetCamera();
@@ -66,8 +74,10 @@ protected:
 	SDL_Window* mWindow;
 	SDL_Renderer* mRenderer;
 	Uint32 mTicksCount;
-	Vector2 mCamera;
-	Vector2 mMapBndry;
+	Vector2 mCamera;   // Position of camera
+	Vector2 mMapBndry; // Defines how far camera can move
+	Vector2 mMapSize; // Size of map in terms of map grids
+	int mGridSize; // Size of each square map grid edge size (in terms of 32px tiles)
 	bool mIsRunning;
 	// Track if we're updating actors right now
 	bool mUpdatingActors;

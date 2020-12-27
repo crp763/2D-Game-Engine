@@ -24,6 +24,8 @@ public:
 	void SetDrawOrder(float x) { mDrawOrder = x; }
 	int GetTexHeight() const { return mTexHeight; }
 	int GetTexWidth() const { return mTexWidth; }
+	int GetXLoc() const { return mTexXLoc; }
+	int GetYLoc() const { return mTexYLoc; }
 protected:
 	SDL_Texture* mTexture;
 	float mDrawOrder;

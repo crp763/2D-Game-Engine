@@ -52,6 +52,9 @@
     <ClCompile Include="MapGrid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MapTile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Actor.h">
@@ -102,5 +105,6 @@
     <ClInclude Include="ReadMapCSV.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="MapTile.h" />
   </ItemGroup>
 </Project>

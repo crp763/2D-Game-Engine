@@ -11,6 +11,7 @@
 #include "Component.h"
 #include <algorithm>
 #include "SortFunctions.h"
+#include <iostream>
 
 Actor::Actor(Game* game, int slow)
 	:mState(0)
@@ -78,6 +79,21 @@ void Actor::Update(float deltaTime)
 	if (mSprite)
 	{
 		mSprite->SetDrawOrder(10000*mZLevel + mPosition.y / 100.0f); 
+	}
+	int i = mGame->GetMapGridIndex(mPosition.x, mPosition.y);
+	if (i != mGrid)
+	{
+		if (i != -1)
+		{
+			mGame->AddActorGrid(this, i);
+		}
+		if (mGrid != -1)
+		{
+			mGame->RemoveActorGrid(this, mGrid);
+			std::cout << "Entered grid " << i << std::endl;
+
+		}
+		mGrid = i;
 	}
 }
 

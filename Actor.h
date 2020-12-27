@@ -31,6 +31,7 @@ public:
 	// Getters/setters
 	const Vector2& GetPosition() const { return mPosition; }
 	SpriteComponent* GetSprite() { return mSprite; }
+	int GetGrid() { return mGrid; }
 	float GetYPosition() const { return mPosition.y; }
 	void SetPosition(const Vector2& pos) { mPosition = pos; }
 	float GetScale() const { return mScale; }
@@ -73,6 +74,9 @@ public:
 protected:
 	// Sprite tied to actor
 	SpriteComponent* mSprite;
+
+	// Map grid that the actor occupies
+	int mGrid = -1;
 
 	// Actor's state
 	int mState; // -1 = dead, 0 = normal, 1 = stunned

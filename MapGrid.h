@@ -11,17 +11,27 @@
 #include <vector>
 #include "Math.h"
 #include "Game.h"
+#include "SpriteComponent.h"
 
 class MapGrid
 {
 public:
-	MapGrid(int x, int y, int i, Game* g); // Constructor
+	MapGrid(int x, int y, int i, int size, class Game* g); // Constructor
 	virtual ~MapGrid(); // Destructor
 
-	// Update function called from Game (not overridable)
-	virtual void Update(float deltaTime);
+	// Function to add sprite to the map grid for drawing
+	void AddSprite(class SpriteComponent* sprite);
+	// Function to add actor to the map grid for drawing
+	void AddActor(class Actor* actor);
+	// Function to add sprite to the map grid for drawing
+	void RemoveActor(class Actor* actor);
+	// Return vector of all actors
+	std::vector<class Actor*> GetActors() { return mActors; }
 	// Draw all the actors in the grid
-	void Draw();
+	void Draw(SDL_Renderer* rend, Vector2 camera);
+	Vector2 GetPosition() { return mGridPosition; }
+	int GetGridSize() { return mGridSize; }
+	int OnScreen(Vector2 mCamera, Settings *mSettings);
 
 	class Game* GetGame() { return mGame; }
 
